@@ -1,20 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { storageService } from '../services/storageService';
 import { User, Language } from '../types';
-import { Award, Zap, TrendingUp, Map } from 'lucide-react';
+import { Award, Zap, TrendingUp, Map, Loader2 } from 'lucide-react';
 import { TRANSLATIONS } from '../constants';
 
 export const Dashboard: React.FC<{ lang: Language }> = ({ lang }) => {
-  const [user, setUser] = useState<User>(storageService.getUser());
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const t = TRANSLATIONS[lang];
 
   useEffect(() => {
-    // Poll for changes (simple sync for demo)
+    const loadUser = async () => {
+        try {
+            const u = await storageService.getUser();
+            setUser(u);
+        } finally {
+            setLoading(false);
+        }
+    };
+    loadUser();
+
+    // Poll for changes
     const interval = setInterval(() => {
-        setUser(storageService.getUser());
-    }, 1000);
+        storageService.getUser().then(setUser);
+    }, 5000); // Polling slower now to avoid spamming "network"
     return () => clearInterval(interval);
   }, []);
+
+  if (loading || !user) {
+      return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-primary" size={32} /></div>;
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">

@@ -6,6 +6,7 @@ import { Comparison } from './views/Comparison';
 import { Contribute } from './views/Contribute';
 import { Dashboard } from './views/Dashboard';
 import { AIAdvisor } from './views/AIAdvisor';
+import { TripCalculator } from './views/TripCalculator';
 import { storageService } from './services/storageService';
 import { SimPlan, Language } from './types';
 
@@ -19,12 +20,12 @@ const App = () => {
   // Initialize Storage
   useEffect(() => {
     storageService.init();
-    setUserPoints(storageService.getUser().points);
+    storageService.getUser().then(u => setUserPoints(u.points));
   }, []);
 
   // Update points when view changes (in case of contributions)
   useEffect(() => {
-      setUserPoints(storageService.getUser().points);
+      storageService.getUser().then(u => setUserPoints(u.points));
   }, [view]);
 
   const handleCountrySelect = (id: string) => {
@@ -64,6 +65,8 @@ const App = () => {
         return <Dashboard lang={lang} />;
       case 'ai':
         return <AIAdvisor lang={lang} />;
+      case 'calculator':
+        return <TripCalculator lang={lang} />;
       default:
         return <Home lang={lang} onSelectCountry={handleCountrySelect} />;
     }

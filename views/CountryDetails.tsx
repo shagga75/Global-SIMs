@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ExternalLink, Signal, Wifi, DollarSign, Calendar, Server, Scale, Filter, Star, MessageSquare } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Signal, Wifi, DollarSign, Calendar, Server, Scale, Filter, Star, MessageSquare, Loader2 } from 'lucide-react';
 import { Country, Operator, SimPlan, Language, Review } from '../types';
 import { storageService } from '../services/storageService';
 import { TRANSLATIONS } from '../constants';
@@ -18,34 +18,67 @@ export const CountryDetails: React.FC<CountryDetailsProps> = ({ countryId, lang,
   const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
   const [dataFilter, setDataFilter] = useState<string>('all');
   
+  // Loading states
+  const [loadingCountry, setLoadingCountry] = useState(true);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  
   // Review state
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
   const [newReviewComment, setNewReviewComment] = useState('');
   const [newReviewRating, setNewReviewRating] = useState(5);
 
   const t = TRANSLATIONS[lang];
 
   useEffect(() => {
-    const c = storageService.getCountries().find(c => c.id === countryId);
-    if (c) setCountry(c);
-    const ops = storageService.getOperators(countryId);
-    setOperators(ops);
-    if (ops.length > 0) {
-      setSelectedOperator(ops[0].id);
-    }
+    const initData = async () => {
+        setLoadingCountry(true);
+        try {
+            const allCountries = await storageService.getCountries();
+            const c = allCountries.find(x => x.id === countryId);
+            if (c) setCountry(c);
+            
+            const ops = await storageService.getOperators(countryId);
+            setOperators(ops);
+            if (ops.length > 0) {
+              setSelectedOperator(ops[0].id);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoadingCountry(false);
+        }
+    };
+    initData();
   }, [countryId]);
 
   useEffect(() => {
     if (selectedOperator) {
-      setPlans(storageService.getPlans(selectedOperator));
+      const loadPlans = async () => {
+          setLoadingPlans(true);
+          try {
+              const p = await storageService.getPlans(selectedOperator);
+              setPlans(p);
+          } finally {
+              setLoadingPlans(false);
+          }
+      };
+      loadPlans();
       setDataFilter('all');
     }
   }, [selectedOperator]);
 
   useEffect(() => {
     if (expandedPlanId) {
-      setReviews(storageService.getReviews(expandedPlanId));
+        const loadReviews = async () => {
+            setLoadingReviews(true);
+            const r = await storageService.getReviews(expandedPlanId);
+            setReviews(r);
+            setLoadingReviews(false);
+        };
+        loadReviews();
     }
   }, [expandedPlanId]);
 
@@ -58,10 +91,11 @@ export const CountryDetails: React.FC<CountryDetailsProps> = ({ countryId, lang,
     return true;
   });
 
-  const handleSubmitReview = (planId: string) => {
+  const handleSubmitReview = async (planId: string) => {
     if (!newReviewComment.trim()) return;
     
-    const user = storageService.getUser();
+    setSubmittingReview(true);
+    const user = await storageService.getUser();
     const newReview: Review = {
       id: `rev_${Date.now()}`,
       planId,
@@ -71,10 +105,11 @@ export const CountryDetails: React.FC<CountryDetailsProps> = ({ countryId, lang,
       date: new Date().toLocaleDateString()
     };
     
-    storageService.addReview(newReview);
+    await storageService.addReview(newReview);
     setReviews([...reviews, newReview]);
     setNewReviewComment('');
     setNewReviewRating(5);
+    setSubmittingReview(false);
   };
 
   const FilterButton = ({ id, label }: { id: string, label: string }) => (
@@ -90,7 +125,16 @@ export const CountryDetails: React.FC<CountryDetailsProps> = ({ countryId, lang,
     </button>
   );
 
-  if (!country) return <div>Loading...</div>;
+  if (loadingCountry) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64">
+             <Loader2 className="animate-spin text-primary mb-4" size={48} />
+             <p className="text-gray-500">Loading destination data...</p>
+        </div>
+      );
+  }
+
+  if (!country) return <div>Country not found.</div>;
 
   return (
     <div className="animate-fade-in">
@@ -137,7 +181,7 @@ export const CountryDetails: React.FC<CountryDetailsProps> = ({ countryId, lang,
                {(() => {
                  const op = operators.find(o => o.id === selectedOperator);
                  return op ? (
-                   <div className="flex justify-between items-center mb-6 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                   <div className="flex justify-between items-center mb-6 p-4 bg-white rounded-xl border border-gray-200 shadow-sm animate-fade-in">
                      <div>
                         <h2 className="text-2xl font-bold text-slate-800">{op.name}</h2>
                         <div className="flex items-center text-sm text-slate-600 mt-1">
@@ -169,154 +213,165 @@ export const CountryDetails: React.FC<CountryDetailsProps> = ({ countryId, lang,
                  <FilterButton id="ultra" label="100 GB+" />
                </div>
 
-               {/* Plan Cards */}
-               <div className="grid grid-cols-1 gap-4">
-                 {filteredPlans.map(plan => (
-                   <div key={plan.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                     <div className="p-6">
-                        <div className="flex justify-between items-start">
-                            <div>
-                              <div className="flex items-center space-x-2 mb-1">
-                                <span className={`px-2 py-0.5 text-xs rounded-full font-bold ${plan.sim_type === 'eSIM' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
-                                  {plan.sim_type}
+               {/* Plans List */}
+               {loadingPlans ? (
+                    <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="bg-white h-48 rounded-xl shadow-sm animate-pulse border border-gray-100"></div>
+                        ))}
+                    </div>
+               ) : (
+                   <div className="grid grid-cols-1 gap-4">
+                     {filteredPlans.map(plan => (
+                       <div key={plan.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow animate-fade-in">
+                         <div className="p-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <span className={`px-2 py-0.5 text-xs rounded-full font-bold ${plan.sim_type === 'eSIM' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'}`}>
+                                      {plan.sim_type}
+                                    </span>
+                                    {plan.speed_5g && <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-bold">5G</span>}
+                                  </div>
+                                  <h3 className="text-lg font-bold text-slate-800">{plan.name}</h3>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-2xl font-bold text-primary">
+                                    {plan.price} <span className="text-sm font-normal text-gray-500">{plan.currency}</span>
+                                  </div>
+                                  <div className="text-xs text-gray-400">
+                                    {((plan.price / (plan.data_gb === -1 ? 100 : plan.data_gb)).toFixed(2))} {plan.currency}/GB
+                                  </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4 my-4 py-4 border-t border-b border-gray-50">
+                                <div className="flex flex-col items-center text-center">
+                                  <Wifi className="text-slate-400 mb-1" size={20} />
+                                  <span className="font-bold text-slate-700">{plan.data_gb === -1 ? '∞' : plan.data_gb} GB</span>
+                                  <span className="text-xs text-gray-500">{t.data}</span>
+                                </div>
+                                <div className="flex flex-col items-center text-center">
+                                  <Calendar className="text-slate-400 mb-1" size={20} />
+                                  <span className="font-bold text-slate-700">{plan.validity_days} Days</span>
+                                  <span className="text-xs text-gray-500">{t.validity}</span>
+                                </div>
+                                <div className="flex flex-col items-center text-center">
+                                  <Server className="text-slate-400 mb-1" size={20} />
+                                  <span className="font-bold text-slate-700">{plan.speed_5g ? 'Max' : '4G'}</span>
+                                  <span className="text-xs text-gray-500">{t.speed}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {plan.features.map((feature, idx) => (
+                                <span key={idx} className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+                                  {feature}
                                 </span>
-                                {plan.speed_5g && <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-bold">5G</span>}
-                              </div>
-                              <h3 className="text-lg font-bold text-slate-800">{plan.name}</h3>
+                              ))}
                             </div>
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-primary">
-                                {plan.price} <span className="text-sm font-normal text-gray-500">{plan.currency}</span>
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                {((plan.price / (plan.data_gb === -1 ? 100 : plan.data_gb)).toFixed(2))} {plan.currency}/GB
-                              </div>
-                            </div>
-                        </div>
 
-                        <div className="grid grid-cols-3 gap-4 my-4 py-4 border-t border-b border-gray-50">
-                            <div className="flex flex-col items-center text-center">
-                              <Wifi className="text-slate-400 mb-1" size={20} />
-                              <span className="font-bold text-slate-700">{plan.data_gb === -1 ? '∞' : plan.data_gb} GB</span>
-                              <span className="text-xs text-gray-500">{t.data}</span>
+                            <div className="flex gap-3">
+                              <button 
+                                onClick={() => onCompare(plan)}
+                                className="flex-1 bg-slate-800 text-white py-2 rounded-lg hover:bg-slate-700 transition-colors font-medium flex justify-center items-center"
+                              >
+                                <Scale size={16} className="mr-2" /> {t.addToCompare}
+                              </button>
+                              <button
+                                onClick={() => setExpandedPlanId(expandedPlanId === plan.id ? null : plan.id)}
+                                className="px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-slate-600 flex items-center"
+                              >
+                                <MessageSquare size={16} className="mr-2" /> Reviews
+                              </button>
                             </div>
-                            <div className="flex flex-col items-center text-center">
-                              <Calendar className="text-slate-400 mb-1" size={20} />
-                              <span className="font-bold text-slate-700">{plan.validity_days} Days</span>
-                              <span className="text-xs text-gray-500">{t.validity}</span>
-                            </div>
-                            <div className="flex flex-col items-center text-center">
-                              <Server className="text-slate-400 mb-1" size={20} />
-                              <span className="font-bold text-slate-700">{plan.speed_5g ? 'Max' : '4G'}</span>
-                              <span className="text-xs text-gray-500">{t.speed}</span>
-                            </div>
-                        </div>
+                         </div>
 
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {plan.features.map((feature, idx) => (
-                            <span key={idx} className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                              {feature}
-                            </span>
-                          ))}
-                        </div>
-
-                        <div className="flex gap-3">
-                          <button 
-                            onClick={() => onCompare(plan)}
-                            className="flex-1 bg-slate-800 text-white py-2 rounded-lg hover:bg-slate-700 transition-colors font-medium flex justify-center items-center"
-                          >
-                            <Scale size={16} className="mr-2" /> {t.addToCompare}
-                          </button>
-                          <button
-                            onClick={() => setExpandedPlanId(expandedPlanId === plan.id ? null : plan.id)}
-                            className="px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 text-slate-600 flex items-center"
-                          >
-                            <MessageSquare size={16} className="mr-2" /> Reviews
-                          </button>
-                        </div>
-                     </div>
-
-                     {/* Reviews Section */}
-                     {expandedPlanId === plan.id && (
-                        <div className="bg-gray-50 p-6 border-t border-gray-200">
-                           <h4 className="font-bold text-slate-700 mb-4">Community Reviews</h4>
-                           
-                           {/* Add Review */}
-                           <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <span className="text-sm font-medium">Your Rating:</span>
-                                {[1, 2, 3, 4, 5].map(star => (
+                         {/* Reviews Section */}
+                         {expandedPlanId === plan.id && (
+                            <div className="bg-gray-50 p-6 border-t border-gray-200 animate-fade-in">
+                               <h4 className="font-bold text-slate-700 mb-4">Community Reviews</h4>
+                               
+                               {/* Add Review */}
+                               <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <span className="text-sm font-medium">Your Rating:</span>
+                                    {[1, 2, 3, 4, 5].map(star => (
+                                        <button 
+                                          key={star} 
+                                          type="button" 
+                                          onClick={() => setNewReviewRating(star)}
+                                          className="focus:outline-none"
+                                        >
+                                            <Star 
+                                                size={18} 
+                                                className={`${star <= newReviewRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} 
+                                            />
+                                        </button>
+                                    ))}
+                                  </div>
+                                  <textarea
+                                    className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                    rows={2}
+                                    placeholder="Share your experience with this plan..."
+                                    value={newReviewComment}
+                                    onChange={(e) => setNewReviewComment(e.target.value)}
+                                  ></textarea>
+                                  <div className="text-right mt-2">
                                     <button 
-                                      key={star} 
-                                      type="button" 
-                                      onClick={() => setNewReviewRating(star)}
-                                      className="focus:outline-none"
+                                        onClick={() => handleSubmitReview(plan.id)}
+                                        disabled={submittingReview}
+                                        className="bg-blue-600 text-white px-3 py-1 text-sm rounded hover:bg-blue-700 disabled:opacity-50"
                                     >
-                                        <Star 
-                                            size={18} 
-                                            className={`${star <= newReviewRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} 
-                                        />
+                                        {submittingReview ? 'Submitting...' : 'Submit Review'}
                                     </button>
-                                ))}
-                              </div>
-                              <textarea
-                                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
-                                rows={2}
-                                placeholder="Share your experience with this plan..."
-                                value={newReviewComment}
-                                onChange={(e) => setNewReviewComment(e.target.value)}
-                              ></textarea>
-                              <div className="text-right mt-2">
-                                <button 
-                                    onClick={() => handleSubmitReview(plan.id)}
-                                    className="bg-blue-600 text-white px-3 py-1 text-sm rounded hover:bg-blue-700"
-                                >
-                                    Submit Review
-                                </button>
-                              </div>
-                           </div>
+                                  </div>
+                               </div>
 
-                           {/* List Reviews */}
-                           <div className="space-y-4">
-                              {reviews.length === 0 ? (
-                                  <p className="text-center text-gray-500 text-sm italic">No reviews yet. Be the first!</p>
-                              ) : (
-                                  reviews.map(review => (
-                                      <div key={review.id} className="border-b border-gray-200 pb-3 last:border-0">
-                                          <div className="flex justify-between items-start">
-                                              <span className="font-bold text-sm text-slate-700">{review.userName}</span>
-                                              <span className="text-xs text-gray-400">{review.date}</span>
+                               {/* List Reviews */}
+                               <div className="space-y-4">
+                                  {loadingReviews ? (
+                                      <div className="flex justify-center p-4"><Loader2 className="animate-spin text-gray-400" /></div>
+                                  ) : reviews.length === 0 ? (
+                                      <p className="text-center text-gray-500 text-sm italic">No reviews yet. Be the first!</p>
+                                  ) : (
+                                      reviews.map(review => (
+                                          <div key={review.id} className="border-b border-gray-200 pb-3 last:border-0">
+                                              <div className="flex justify-between items-start">
+                                                  <span className="font-bold text-sm text-slate-700">{review.userName}</span>
+                                                  <span className="text-xs text-gray-400">{review.date}</span>
+                                              </div>
+                                              <div className="flex text-yellow-400 my-1">
+                                                  {[...Array(5)].map((_, i) => (
+                                                      <Star key={i} size={12} className={i < review.rating ? 'fill-current' : 'text-gray-300'} />
+                                                  ))}
+                                              </div>
+                                              <p className="text-sm text-slate-600">{review.comment}</p>
                                           </div>
-                                          <div className="flex text-yellow-400 my-1">
-                                              {[...Array(5)].map((_, i) => (
-                                                  <Star key={i} size={12} className={i < review.rating ? 'fill-current' : 'text-gray-300'} />
-                                              ))}
-                                          </div>
-                                          <p className="text-sm text-slate-600">{review.comment}</p>
-                                      </div>
-                                  ))
-                              )}
-                           </div>
-                        </div>
+                                      ))
+                                  )}
+                               </div>
+                            </div>
+                         )}
+                       </div>
+                     ))}
+                     {filteredPlans.length === 0 && plans.length > 0 && (
+                       <div className="bg-gray-50 rounded-xl p-8 text-center text-gray-500 border-2 border-dashed border-gray-200">
+                         No plans match the selected filter.
+                       </div>
+                     )}
+                     {plans.length === 0 && (
+                       <div className="bg-gray-50 rounded-xl p-8 text-center text-gray-500 border-2 border-dashed border-gray-200">
+                         No plans found for this operator. Be the first to add one!
+                       </div>
                      )}
                    </div>
-                 ))}
-                 {filteredPlans.length === 0 && plans.length > 0 && (
-                   <div className="bg-gray-50 rounded-xl p-8 text-center text-gray-500 border-2 border-dashed border-gray-200">
-                     No plans match the selected filter.
-                   </div>
-                 )}
-                 {plans.length === 0 && (
-                   <div className="bg-gray-50 rounded-xl p-8 text-center text-gray-500 border-2 border-dashed border-gray-200">
-                     No plans found for this operator. Be the first to add one!
-                   </div>
-                 )}
-               </div>
+               )}
              </div>
            ) : (
-             <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+             <div className="flex flex-col items-center justify-center h-64 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
                <Server size={48} className="mb-4 opacity-20" />
-               <p>Select an operator to view plans</p>
+               <p>Select an operator from the list to view plans</p>
              </div>
            )}
         </div>

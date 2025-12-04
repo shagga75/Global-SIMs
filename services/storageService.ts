@@ -9,14 +9,16 @@ const STORAGE_KEYS = {
   USER: 'gsc_user',
 };
 
+// Simulate network delay (300ms to 800ms)
+const delay = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms > 0 ? ms : 300 + Math.random() * 500));
+
 export const storageService = {
   init: () => {
-    // Check if countries need to be updated (if missing or if it's the old short list)
+    // Keep init synchronous for basic setup, but data access will be async
     const storedCountries = localStorage.getItem(STORAGE_KEYS.COUNTRIES);
     if (!storedCountries || JSON.parse(storedCountries).length < 10) {
       localStorage.setItem(STORAGE_KEYS.COUNTRIES, JSON.stringify(INITIAL_COUNTRIES));
     }
-
     if (!localStorage.getItem(STORAGE_KEYS.OPERATORS)) {
       localStorage.setItem(STORAGE_KEYS.OPERATORS, JSON.stringify(INITIAL_OPERATORS));
     }
@@ -31,11 +33,13 @@ export const storageService = {
     }
   },
 
-  getCountries: (): Country[] => {
+  getCountries: async (): Promise<Country[]> => {
+    await delay();
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.COUNTRIES) || '[]');
   },
 
-  getOperators: (countryId?: string): Operator[] => {
+  getOperators: async (countryId?: string): Promise<Operator[]> => {
+    await delay();
     const ops: Operator[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.OPERATORS) || '[]');
     if (countryId) {
       return ops.filter(op => op.country_id === countryId);
@@ -43,7 +47,8 @@ export const storageService = {
     return ops;
   },
 
-  getPlans: (operatorId?: string): SimPlan[] => {
+  getPlans: async (operatorId?: string): Promise<SimPlan[]> => {
+    await delay();
     const plans: SimPlan[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.PLANS) || '[]');
     if (operatorId) {
       return plans.filter(p => p.operator_id === operatorId);
@@ -51,45 +56,50 @@ export const storageService = {
     return plans;
   },
 
-  getReviews: (planId: string): Review[] => {
+  getReviews: async (planId: string): Promise<Review[]> => {
+    await delay();
     const allReviews: Review[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.reviews) || '[]');
     return allReviews.filter(r => r.planId === planId);
   },
 
-  addReview: (review: Review) => {
+  addReview: async (review: Review): Promise<void> => {
+    await delay(600); // Slower write
     const allReviews: Review[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.reviews) || '[]');
     allReviews.push(review);
     localStorage.setItem(STORAGE_KEYS.reviews, JSON.stringify(allReviews));
 
-    // Gamification: Add points for review
-    const user = storageService.getUser();
-    user.points += 2; // 2 points per review as per PDF
+    // Gamification
+    const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || '{}');
+    user.points += 2;
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
   },
 
-  getUser: (): User => {
+  getUser: async (): Promise<User> => {
+    await delay(200); // Faster read for user
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || '{}');
   },
 
-  addOperator: (operator: Operator) => {
+  addOperator: async (operator: Operator): Promise<void> => {
+    await delay(800);
     const operators = JSON.parse(localStorage.getItem(STORAGE_KEYS.OPERATORS) || '[]');
     operators.push(operator);
     localStorage.setItem(STORAGE_KEYS.OPERATORS, JSON.stringify(operators));
     
-    // Gamification points for operator (10 pts)
-    const user = storageService.getUser();
+    // Gamification
+    const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || '{}');
     user.points += 10;
     user.contributions += 1;
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
   },
 
-  addPlan: (plan: SimPlan) => {
-    const plans = storageService.getPlans();
+  addPlan: async (plan: SimPlan): Promise<void> => {
+    await delay(800);
+    const plans = JSON.parse(localStorage.getItem(STORAGE_KEYS.PLANS) || '[]');
     plans.push(plan);
     localStorage.setItem(STORAGE_KEYS.PLANS, JSON.stringify(plans));
     
-    // Gamification: Add points for plan (5 pts)
-    const user = storageService.getUser();
+    // Gamification
+    const user = JSON.parse(localStorage.getItem(STORAGE_KEYS.USER) || '{}');
     user.points += 5;
     user.contributions += 1;
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));

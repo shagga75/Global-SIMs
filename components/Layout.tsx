@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe, User, Menu, X, Award, Search, PlusCircle, Scale, MessageSquare } from 'lucide-react';
+import { Globe, User, Menu, X, Award, Search, PlusCircle, Scale, MessageSquare, Calculator } from 'lucide-react';
 import { Language } from '../types';
 import { TRANSLATIONS } from '../constants';
 
@@ -49,6 +49,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, lang, setLang, current
             {/* Desktop Nav */}
             <nav className="hidden md:flex items-center space-x-2">
               <NavItem view="home" icon={Search} label={t.home} />
+              <NavItem view="calculator" icon={Calculator} label={t.calculator} />
               <NavItem view="compare" icon={Scale} label={t.compare} />
               <NavItem view="contribute" icon={PlusCircle} label={t.contribute} />
               <NavItem view="ai" icon={MessageSquare} label={t.aiAdvisor} />
@@ -86,6 +87,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, lang, setLang, current
         {isMenuOpen && (
           <div className="md:hidden bg-blue-800 px-4 py-2 space-y-2">
              <NavItem view="home" icon={Search} label={t.home} />
+             <NavItem view="calculator" icon={Calculator} label={t.calculator} />
              <NavItem view="compare" icon={Scale} label={t.compare} />
              <NavItem view="contribute" icon={PlusCircle} label={t.contribute} />
              <NavItem view="ai" icon={MessageSquare} label={t.aiAdvisor} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, ArrowRight } from 'lucide-react';
+import { Search, MapPin, ArrowRight, Loader2 } from 'lucide-react';
 import { Country, Language } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { storageService } from '../services/storageService';
@@ -12,10 +12,21 @@ interface HomeProps {
 export const Home: React.FC<HomeProps> = ({ lang, onSelectCountry }) => {
   const [query, setQuery] = useState('');
   const [countries, setCountries] = useState<Country[]>([]);
+  const [loading, setLoading] = useState(true);
   const t = TRANSLATIONS[lang];
 
   useEffect(() => {
-    setCountries(storageService.getCountries());
+    const fetchCountries = async () => {
+      try {
+        const data = await storageService.getCountries();
+        setCountries(data);
+      } catch (e) {
+        console.error("Failed to load countries", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCountries();
   }, []);
 
   const filteredCountries = countries.filter(c => 
@@ -24,7 +35,7 @@ export const Home: React.FC<HomeProps> = ({ lang, onSelectCountry }) => {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fade-in">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-primary to-dark rounded-2xl p-8 md:p-16 text-white text-center shadow-xl">
         <h1 className="text-3xl md:text-5xl font-bold mb-4">{t.title}</h1>
@@ -36,7 +47,7 @@ export const Home: React.FC<HomeProps> = ({ lang, onSelectCountry }) => {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-4 border-none rounded-full leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-lg"
+            className="block w-full pl-10 pr-3 py-4 border-none rounded-full leading-5 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-lg transition-shadow"
             placeholder={t.searchPlaceholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -51,36 +62,43 @@ export const Home: React.FC<HomeProps> = ({ lang, onSelectCountry }) => {
           {query ? 'Search Results' : t.popularCountries}
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredCountries.map((country) => (
-            <div 
-              key={country.id}
-              onClick={() => onSelectCountry(country.id)}
-              className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden border border-gray-100 group"
-            >
-              <div className="h-24 bg-gray-50 flex items-center justify-center text-6xl group-hover:scale-110 transition-transform">
-                {country.flag}
-              </div>
-              <div className="p-4">
-                <h3 className="text-lg font-bold text-slate-800">
-                  {lang === 'en' ? country.name_en : country.name_es}
-                </h3>
-                <div className="flex justify-between items-center mt-2 text-sm text-slate-500">
-                  <span>{country.continent}</span>
-                  <span className="bg-blue-100 text-primary px-2 py-0.5 rounded font-medium">{country.currency}</span>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+            <Loader2 className="animate-spin mb-4" size={48} />
+            <p>Connecting to database...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredCountries.map((country) => (
+              <div 
+                key={country.id}
+                onClick={() => onSelectCountry(country.id)}
+                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden border border-gray-100 group"
+              >
+                <div className="h-24 bg-gray-50 flex items-center justify-center text-6xl group-hover:scale-110 transition-transform">
+                  {country.flag}
+                </div>
+                <div className="p-4">
+                  <h3 className="text-lg font-bold text-slate-800">
+                    {lang === 'en' ? country.name_en : country.name_es}
+                  </h3>
+                  <div className="flex justify-between items-center mt-2 text-sm text-slate-500">
+                    <span>{country.continent}</span>
+                    <span className="bg-blue-100 text-primary px-2 py-0.5 rounded font-medium">{country.currency}</span>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-3 flex justify-end">
+                  <ArrowRight className="text-primary h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
-              <div className="bg-gray-50 p-3 flex justify-end">
-                <ArrowRight className="text-primary h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            ))}
+            {filteredCountries.length === 0 && (
+              <div className="col-span-full text-center py-10 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
+                No countries found matching "{query}"
               </div>
-            </div>
-          ))}
-          {filteredCountries.length === 0 && (
-            <div className="col-span-full text-center py-10 text-gray-500">
-              No countries found matching "{query}"
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
