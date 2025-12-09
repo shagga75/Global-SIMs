@@ -3,14 +3,12 @@ import { Sparkles, Send, Bot, Volume2, StopCircle } from 'lucide-react';
 import { Language } from '../types';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { storageService } from '../services/storageService';
-import { TRANSLATIONS } from '../constants';
 
 interface AIAdvisorProps {
   lang: Language;
 }
 
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ lang }) => {
-  const t = TRANSLATIONS[lang];
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
