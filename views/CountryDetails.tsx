@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ExternalLink, Signal, Wifi, DollarSign, Calendar, Server, Scale, Filter, Star, MessageSquare, Loader2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Signal, Wifi, Calendar, Server, Scale, Filter, Star, MessageSquare, Loader2 } from 'lucide-react';
 import { Country, Operator, SimPlan, Language, Review } from '../types';
 import { storageService } from '../services/storageService';
 import { TRANSLATIONS } from '../constants';

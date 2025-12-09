@@ -86,7 +86,8 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ lang }) => {
 
     try {
         // Fetch Context Data Async
-        const [countries, operators, plans] = await Promise.all([
+        // Removed 'countries' from destructuring to avoid unused variable TS error
+        const [, operators, plans] = await Promise.all([
              storageService.getCountries(),
              storageService.getOperators(),
              storageService.getPlans()
